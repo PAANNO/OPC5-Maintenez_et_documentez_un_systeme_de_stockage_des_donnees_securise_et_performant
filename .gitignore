@@ -1,0 +1,17 @@
+# Environments
+.venv/
+
+# Notebooks checkpoints
+.ipynb_checkpoints/
+
+# Cache
+__pycache__/
+
+# Datas
+data/*
+!data/README.md
+!data/**/.gitkeep
+
+# Outputs
+outputs/*
+!outputs/**/.gitkeep
