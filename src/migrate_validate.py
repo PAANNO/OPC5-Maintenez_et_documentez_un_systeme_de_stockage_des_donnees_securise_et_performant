@@ -245,7 +245,7 @@ def transform_dataframe(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]
     # Durée de séjour
     working_df["stay_days"] = (
         pd.to_datetime(working_df["discharge_date"]) - pd.to_datetime(working_df["date_of_admission"])
-    ).dt.days
+    ).dt.days.map(lambda x: int(x) if pd.notna(x) else None)
 
     # Hash technique pour idempotence / anti-doublon technique
     working_df["row_hash"] = working_df.apply(stable_row_hash, axis=1)
