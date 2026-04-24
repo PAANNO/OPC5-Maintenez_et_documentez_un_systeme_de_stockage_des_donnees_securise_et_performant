@@ -2,6 +2,8 @@ import json
 import hashlib
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+import os
+import time
 
 import pandas as pd
 from numbers import Integral
@@ -14,9 +16,13 @@ from pymongo.errors import BulkWriteError
 # ============================================================
 
 CSV_PATH = Path("data/raw/healthcare_dataset.csv")
-MONGO_URI = "mongodb://localhost:27017"
-DB_NAME = "healthcare_db"
-COLLECTION_NAME = "admissions"
+MONGO_URI = MONGO_URI = (
+    f"mongodb://{os.getenv('MONGO_INITDB_ROOT_USERNAME')}:{os.getenv('MONGO_INITDB_ROOT_PASSWORD')}"
+    f"@{os.getenv('MONGO_HOST', 'mongo')}:{os.getenv('MONGO_PORT', '27017')}/"
+    f"?authSource=admin"
+)
+DB_NAME = os.getenv("MONGO_DB", "healthcare_db")
+COLLECTION_NAME = os.getenv("MONGO_COLLECTION", "admissions")
 
 # Stratégie doublons :
 # True  -> supprime les doublons exacts avant insertion
@@ -71,6 +77,7 @@ ALLOWED_TEST_RESULTS = {"Normal", "Abnormal", "Inconclusive"}
 # OUTILS
 # ============================================================
 
+
 def print_section(title: str) -> None:
     print("\n" + "=" * 80)
     print(title)
@@ -113,7 +120,9 @@ def to_python_datetime(series: pd.Series) -> pd.Series:
     return converted.dt.to_pydatetime()
 
 
-def count_missing_fields_in_documents(documents: List[Dict[str, Any]], required_fields: List[str]) -> Dict[str, int]:
+def count_missing_fields_in_documents(
+    documents: List[Dict[str, Any]], required_fields: List[str]
+) -> Dict[str, int]:
     counts = {field: 0 for field in required_fields}
     for doc in documents:
         for field in required_fields:
@@ -125,6 +134,7 @@ def count_missing_fields_in_documents(documents: List[Dict[str, Any]], required_
 # ============================================================
 # ÉTAPE 1 — CONTRÔLE AVANT MIGRATION
 # ============================================================
+
 
 def check_before_migration(csv_path: Path) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     print_section("1) CONTRÔLE AVANT MIGRATION")
@@ -174,12 +184,16 @@ def check_before_migration(csv_path: Path) -> Tuple[pd.DataFrame, Dict[str, Any]
 
     # Contrôles métier
     invalid_age = int((pd.to_numeric(df["Age"], errors="coerce") <= 0).sum())
-    invalid_billing = int((pd.to_numeric(df["Billing Amount"], errors="coerce") < 0).sum())
+    invalid_billing = int(
+        (pd.to_numeric(df["Billing Amount"], errors="coerce") < 0).sum()
+    )
     invalid_room = int((pd.to_numeric(df["Room Number"], errors="coerce") <= 0).sum())
     invalid_stay_order = int((discharge_dates < admission_dates).sum())
 
     invalid_gender = int((~df["Gender"].isin(ALLOWED_GENDER)).sum())
-    invalid_admission_type = int((~df["Admission Type"].isin(ALLOWED_ADMISSION_TYPE)).sum())
+    invalid_admission_type = int(
+        (~df["Admission Type"].isin(ALLOWED_ADMISSION_TYPE)).sum()
+    )
     invalid_test_results = int((~df["Test Results"].isin(ALLOWED_TEST_RESULTS)).sum())
 
     report["business_rules"] = {
@@ -208,6 +222,7 @@ def check_before_migration(csv_path: Path) -> Tuple[pd.DataFrame, Dict[str, Any]
 # ============================================================
 # ÉTAPE 2 — TRANSFORMATION
 # ============================================================
+
 
 def transform_dataframe(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     print_section("2) TRANSFORMATION DES DONNÉES")
@@ -239,12 +254,15 @@ def transform_dataframe(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]
     working_df["billing_amount"] = working_df["billing_amount"].apply(safe_float)
     working_df["room_number"] = working_df["room_number"].apply(safe_int)
 
-    working_df["date_of_admission"] = to_python_datetime(working_df["date_of_admission"])
+    working_df["date_of_admission"] = to_python_datetime(
+        working_df["date_of_admission"]
+    )
     working_df["discharge_date"] = to_python_datetime(working_df["discharge_date"])
 
     # Durée de séjour
     working_df["stay_days"] = (
-        pd.to_datetime(working_df["discharge_date"]) - pd.to_datetime(working_df["date_of_admission"])
+        pd.to_datetime(working_df["discharge_date"])
+        - pd.to_datetime(working_df["date_of_admission"])
     ).dt.days
 
     # Hash technique pour idempotence / anti-doublon technique
@@ -262,6 +280,7 @@ def transform_dataframe(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, Any]]
 # ============================================================
 # ÉTAPE 3 — MIGRATION VERS MONGODB
 # ============================================================
+
 
 def migrate_to_mongodb(df: pd.DataFrame) -> Dict[str, Any]:
     print_section("3) MIGRATION VERS MONGODB")
@@ -337,6 +356,7 @@ def migrate_to_mongodb(df: pd.DataFrame) -> Dict[str, Any]:
 # ÉTAPE 4 — CONTRÔLE APRÈS MIGRATION
 # ============================================================
 
+
 def check_after_migration(expected_rows: int) -> Dict[str, Any]:
     print_section("4) CONTRÔLE APRÈS MIGRATION")
 
@@ -370,7 +390,9 @@ def check_after_migration(expected_rows: int) -> Dict[str, Any]:
     existing_indexes = list(collection.index_information().keys())
 
     # Documents incomplets sur l'échantillon
-    missing_fields_in_sample = count_missing_fields_in_documents(sample_docs, required_fields)
+    missing_fields_in_sample = count_missing_fields_in_documents(
+        sample_docs, required_fields
+    )
 
     # Vérification types sur échantillon
     type_checks = {
@@ -414,7 +436,11 @@ def check_after_migration(expected_rows: int) -> Dict[str, Any]:
         "type_checks_on_sample": type_checks,
         "duplicate_hash_groups": int(duplicate_hash_groups),
         "indexes_found": existing_indexes,
-        "status": "OK" if total_docs == expected_rows and duplicate_hash_groups == 0 else "CHECK_NEEDED",
+        "status": (
+            "OK"
+            if total_docs == expected_rows and duplicate_hash_groups == 0
+            else "CHECK_NEEDED"
+        ),
     }
 
     client.close()
@@ -427,8 +453,21 @@ def check_after_migration(expected_rows: int) -> Dict[str, Any]:
 # MAIN
 # ============================================================
 
+
 def main() -> None:
     print_section("LANCEMENT DU PIPELINE DE CONTRÔLE + MIGRATION")
+
+    for attempt in range(20):
+        try:
+            client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
+            client.admin.command("ping")
+            print("MongoDB est prêt.")
+            break
+        except Exception:
+            print(f"MongoDB non prêt, tentative {attempt + 1}/20...")
+            time.sleep(3)
+    else:
+        raise RuntimeError("Impossible de se connecter à MongoDB.")
 
     # 1. Contrôle avant migration
     raw_df, before_report = check_before_migration(CSV_PATH)
