@@ -1,0 +1,22 @@
+# Environnement Python / uv
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Données (le CSV n'est pas versionné)
+data/*.csv
+
+# Variables d'environnement
+.env
+
+# Logs
+logs/*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
