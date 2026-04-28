@@ -185,6 +185,135 @@ Format inspiré des ADR (Architecture Decision Records).
 
 ---
 
+## 2026-04-28 — Connexion conteneur → hôte Mongo : host.docker.internal au lieu de --network host
+**Contexte :** Lors des tests avec mongoexport/mongodump depuis un conteneur jetable, première tentative avec --network host. Connexion réussie mais 0 records exportés.
+
+**Cause :** --network host est une fonctionnalité Linux. Sur Docker Desktop Windows/macOS, l'option est acceptée silencieusement mais n'a pas l'effet attendu — le conteneur ne partage pas réellement la pile réseau de l'hôte. Le localhost du conteneur reste sa propre boucle locale.
+
+**Décision :** utiliser le DNS spécial host.docker.internal fourni par Docker Desktop pour résoudre l'IP de l'hôte. Cross-platform (Windows + macOS, et linux récent).
+
+**Impact pour la suite :** non bloquant — en production avec Docker Compose (étape 2), tous les services partageront un réseau Docker interne et on utilisera les noms de service (mongodb au lieu de host.docker.internal). Cette subtilité disparaît une fois en infrastructure cible.
+
+---
+
+## 2026-04-28 — Pas d'authentification MongoDB en phase 1 (exploration et migration locale)
+
+**Contexte :** L'étape 1 ne mentionne pas l'authentification. L'authentification + rôles est une compétence évaluée traitée en étape 2 (conteneurisation).
+
+**Décision :** Pas d'auth en phase 1. Auth introduite avec Docker Compose en étape 2.
+
+**Justification :** Séparation des préoccupations. Mêler auth et logique métier dans la même itération multiplie les sources d'erreur. La compétence « système d'authentification » sera pleinement traitée et démontrée en étape 2 sur l'infrastructure cible (Docker Compose).
+
+**Impacts :** `MONGO_URI` par défaut sans credentials en phase 1. À surcharger via variable d'environnement quand l'auth sera activée.
+
+---
+
+## 2026-04-28 — Casse des champs nominatifs : Title Case à la migration
+
+**Contexte :** Le dataset Kaggle contient des noms en casse aléatoire (`Bobby JacksOn`, `LesLie TErRy`...). 49 992 valeurs uniques sur 55 500 lignes pour `Name`.
+
+**Options envisagées :** (a) normaliser en Title Case à la migration, (b) garder le brut + ajouter un champ `name_normalized` indexable, (c) garder brut.
+
+**Décision :** Normaliser en Title Case sur `name` et `doctor` à la migration via `.str.strip().str.title()`.
+
+**Justification :** Lisibilité, simplicité, suffisant pour les besoins du projet pédagogique. La logique « brut + normalisé » ajoute de la complexité non exploitée ici.
+
+**Impacts :** Test `test_names_are_title_case` valide la normalisation post-migration.
+
+---
+
+## 2026-04-28 — Doublons stricts : suppression à la migration
+
+**Contexte :** Détection de 534 doublons stricts sur 55 500 lignes (~1 %). Les valeurs identiques sur 15 colonnes incluant un montant au centime près sont quasi certainement des artefacts.
+
+**Décision :** Suppression via `df.drop_duplicates()` pendant la phase de transformation.
+
+**Justification :** Probabilité quasi nulle que 534 patients aient exactement le même nom, âge, médecin, hôpital, dates et montant. Les conserver pollue les agrégations (avg, count) sans valeur ajoutée. Le nombre supprimé est logué pour traçabilité.
+
+**Impacts :** 54 966 documents en base. Tests `test_count_matches_csv_minus_duplicates` et `test_no_strict_duplicates` valident.
+
+---
+
+## 2026-04-28 — Convention de nommage des champs : snake_case
+
+**Contexte :** Le CSV utilise des noms avec espaces et casse Title (`Date of Admission`, `Blood Type`). Inutilisable directement en MongoDB.
+
+**Options envisagées :** snake_case, camelCase, brut avec espaces.
+
+**Décision :** snake_case.
+
+**Justification :** Standard Python (PEP 8). Accès direct via `pymongo` (`doc["date_of_admission"]`). MongoDB ne contraint pas la convention, on choisit celle qui s'aligne avec le langage qui pilote le pipeline.
+
+**Impacts :** `RENAME_MAP` dans `src/config.py` mappe les colonnes CSV vers les noms snake_case.
+
+---
+
+## 2026-04-28 — Stratégie d'indexation : 3 simples + 1 composé
+
+**Contexte :** Point de vigilance explicite de l'étape 1.
+
+**Décision :** 4 index :
+- `idx_medical_condition` (ascendant) — filtre par pathologie (cardinalité 6)
+- `idx_date_of_admission_desc` (descendant) — récupération admissions récentes
+- `idx_hospital` (ascendant) — filtre par établissement (cardinalité 39 876)
+- `idx_age_gender` (composé) — analyses démographiques
+
+**Justification :** Couvre les cas d'usage probables d'une application médicale : recherche par pathologie, dashboards récents, vues par hôpital, statistiques démographiques. Pas d'index sur `name` (cardinalité énorme, peu utile, coût en écriture). Pas d'index sur `billing_amount` (50 000 valeurs uniques, plus utile en agrégation qu'en filtre).
+
+**Impacts :** Création via `IndexModel` après l'insertion (ordre optimal : insertion en bulk puis indexation, sinon ralentissement). Test `test_query_uses_index` vérifie via `explain()` que MongoDB utilise bien `IXSCAN`.
+
+---
+
+## 2026-04-28 — Idempotence du script de migration
+
+**Contexte :** Le script peut être lancé plusieurs fois (debug, mise à jour du dataset). Sans protection, chaque lancement ajouterait 54 966 documents.
+
+**Décision :** `collection.delete_many({})` avant insertion.
+
+**Justification :** Comportement déterministe (N exécutions → même état final). Simple à expliquer. L'`upsert` impliquerait une clé fonctionnelle stable que `_id` ObjectId généré ne fournit pas.
+
+**Impacts :** Méthode `load()` vide la collection avant `insert_many`. Documenté dans le README.
+
+---
+
+## 2026-04-28 — Export vers JSON Lines + CSV via script Python
+
+**Contexte :** La consigne demande explicitement « importer **et exporter** l'ensemble des données ». Deux formats demandés par l'utilisateur final pour servir les besoins variés (interopérabilité, lisibilité Excel, ré-import Mongo).
+
+**Options envisagées :** (a) JSONL seul, (b) CSV seul, (c) les deux, (d) seulement la documentation des outils CLI Mongo.
+
+**Décision :** (c) Script Python `src/export.py` produisant les deux formats, **en plus** de la documentation des outils CLI (`mongoexport`, `mongodump`, `mongoimport`).
+
+**Justification :** Complémentaires. **JSONL** préserve les types Mongo via extended JSON (`bson.json_util`) — réversible avec `mongoimport`. **CSV** est universel (Excel, Pandas) avec dates en ISO 8601, mais perd les types. Le script applicatif est testable et intégrable au pipeline ; les outils CLI démontrent la maîtrise de l'écosystème Mongo standard. Utiliser `bson.json_util` plutôt que `json` standard évite les pertes de types lors de l'export.
+
+**Impacts :** `src/export.py` produit `exports/patients_export.jsonl` et `exports/patients_export.csv`. Tests dédiés (`tests/test_export.py`) valident comptage, format ISO des dates, conformité du header CSV. Streaming via `collection.find()` pour ne pas charger toute la collection en mémoire.
+
+---
+
+## 2026-04-28 — Démonstration CRUD isolée dans `src/crud.py`
+
+**Contexte :** La consigne demande explicitement « Utiliser les commandes de base pour CRUD via un script python ». Le pipeline de migration ne couvre que Create + Read.
+
+**Décision :** Script séparé `src/crud.py` qui démontre les 4 opérations sur des documents préfixés `Demo` et qui s'auto-nettoie.
+
+**Justification :** Séparation des responsabilités (le script de migration n'a pas vocation à muter ou supprimer). Idempotence garantie : `count_documents` avant et après doit être identique. Démontre la maîtrise des opérations sans polluer la collection métier.
+
+**Impacts :** `src/crud.py` est documentaire/pédagogique, exécutable à la demande. Référencé dans le README.
+
+---
+
+## 2026-04-28 — Tests automatisés via pytest
+
+**Contexte :** L'étape 1 demande « automatiser le processus de test ». Deux frameworks usuels : `unittest` (stdlib) et `pytest`.
+
+**Décision :** pytest.
+
+**Justification :** Syntaxe plus concise (`assert` natif), fixtures plus expressives (`@pytest.fixture` partage les ressources entre tests), meilleure sortie console, écosystème de plugins. Référencé dans la ressource Real Python liée à la consigne.
+
+**Impacts :** `pyproject.toml` ajoute pytest en groupe `dev`. `pytest.ini` configure les chemins. 25 tests répartis en 3 fichiers (CSV, Mongo, exports). Lancement : `uv run pytest`.
+
+---
+
 ## [À compléter prochainement]
 
 - Stratégie d'export (cf. décision en cours)

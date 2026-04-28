@@ -3,9 +3,13 @@
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+.pytest_cache/
 
 # Données (le CSV n'est pas versionné)
 data/*.csv
+
+# Exports (régénérables, parfois volumineux)
+exports/
 
 # Variables d'environnement
 .env

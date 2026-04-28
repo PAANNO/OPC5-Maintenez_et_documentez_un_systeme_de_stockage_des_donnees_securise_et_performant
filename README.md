@@ -15,7 +15,10 @@
   - [5. Prérequis](#5-prérequis)
   - [6. Installation et lancement](#6-installation-et-lancement)
   - [7. Logique de la migration](#7-logique-de-la-migration)
+    - [Démonstration CRUD](#démonstration-crud)
+    - [Export](#export)
   - [8. Tests](#8-tests)
+  - [8. Tests](#8-tests-1)
   - [9. Structure du dépôt](#9-structure-du-dépôt)
   - [10. Recherches AWS](#10-recherches-aws)
   - [11. Décisions techniques](#11-décisions-techniques)
@@ -166,76 +169,92 @@ docker compose down -v       # arrête et supprime les volumes (données perdues
 
 ## 7. Logique de la migration
 
-> *À compléter au fur et à mesure de l'implémentation.*
-
 Le script `src/migrate.py` exécute la séquence suivante :
 
-1. **Lecture du CSV** depuis `/data/healthcare_dataset.csv`.
-2. **Validation amont** : vérification présence des colonnes attendues, types, valeurs manquantes (rapport pré-migration).
-3. **Transformation** : typage explicite (dates, entiers), normalisation des chaînes, déduplication.
-4. **Connexion à MongoDB** avec l'utilisateur `migration_user` (lecture du `.env`).
-5. **Insertion** par batch dans `healthcare.patients` (`insert_many`).
-6. **Création des index** (cf. section 3).
-7. **Validation aval** : recompte, vérification d'échantillons, comparaison hashes/agrégats CSV vs Mongo.
-8. **Rapport** : log structuré + écriture d'un résumé dans `logs/migration_<timestamp>.log`.
+1. **Connexion MongoDB** avec timeout court (3s) — échoue vite si le serveur est inaccessible.
+2. **Lecture du CSV** via pandas (`data/healthcare_dataset.csv` par défaut).
+3. **Validation amont** : présence des 15 colonnes attendues, comptage des valeurs manquantes.
+4. **Transformation** :
+   - Renommage en snake_case (`Date of Admission` → `date_of_admission`).
+   - Title Case sur `name` et `doctor` (le dataset source contient de la casse aléatoire).
+   - Parsing explicite des dates (`%Y-%m-%d`).
+   - Suppression des doublons stricts (~534 lignes sur 55 500).
+5. **Chargement** :
+   - Vidage de la collection avant insertion (idempotence).
+   - Insertion par batchs de 5 000 (`insert_many` avec `ordered=False`).
+6. **Indexation** : 4 index (cf. section 3). Créés **après** l'insertion pour ne pas ralentir le bulk load.
+7. **Validation aval** : recompte, vérification de la présence de tous les index attendus.
 
-Opérations CRUD exposées (script + tests) :
-- **Create** : `insert_one`, `insert_many`.
-- **Read** : `find`, `find_one`, `aggregate`.
-- **Update** : `update_one`, `update_many`.
-- **Delete** : `delete_one`, `delete_many`.
+Tous les événements sont logués en console **et** dans un fichier `logs/migration_YYYYMMDD_HHMMSS.log`.
+
+**Volume traité** : 55 500 lignes en entrée → 54 966 documents en base après dédoublonnage. Migration en ~1,2 s en local.
+
+### Démonstration CRUD
+
+`src/crud.py` est un script pédagogique séparé qui démontre les 4 opérations CRUD sur des documents `Demo` isolés, et qui s'auto-nettoie (l'état final = état initial). Lancement : `uv run python -m src.crud`.
+
+### Export
+
+`src/export.py` extrait la collection vers deux formats complémentaires :
+- `exports/patients_export.jsonl` — JSON Lines (un document par ligne, types Mongo préservés via extended JSON, ré-importable avec `mongoimport`).
+- `exports/patients_export.csv` — CSV avec dates en ISO 8601, ouvrable dans Excel/Pandas.
+
+Les outils standard Mongo ont également été testés : `mongoexport` (JSON et CSV), `mongodump` (BSON), `mongoimport` (réversibilité validée).
 
 ---
 
 ## 8. Tests
 
-> *À compléter à l'étape 1.*
+## 8. Tests
 
-Framework retenu : **`pytest`** *(justification dans `DECISIONS.md`)*.
+25 tests pytest répartis en 3 fichiers :
 
 ```bash
-# Lancer les tests dans le conteneur migrator
-docker compose run --rm migrator pytest -v
+uv run pytest
 ```
 
-Couverture prévue :
-- Présence et type des colonnes du CSV source.
-- Absence de doublons après migration.
-- Égalité du nombre de documents insérés vs lignes CSV valides.
-- Présence des index attendus.
-- Authentification : un utilisateur sans droits ne peut pas écrire.
+| Fichier | Tests | Périmètre |
+|---|---|---|
+| `tests/test_csv_integrity.py` | 7 | Validation amont du CSV : structure, qualité, cohérence métier (dates, âges) |
+| `tests/test_mongo_integrity.py` | 10 | Validation aval Mongo : comptage, typage (datetime/int/float), index présents, IXSCAN utilisé, doublons absents, Title Case appliqué |
+| `tests/test_export.py` | 8 | Cohérence des fichiers exportés : comptage, JSON valide, header CSV complet, dates ISO |
+
+Les fixtures partagées (`tests/conftest.py`) skippent proprement les tests si MongoDB est indisponible ou si la migration n'a pas été exécutée — pas de plantage en cascade.
+
+**Pré-requis avant de lancer pytest** : avoir lancé au moins une fois `uv run python -m src.migrate` puis `uv run python -m src.export`.
 
 ---
 
 ## 9. Structure du dépôt
 
 
->├── .env.example  
->├── .gitignore  
->├── README.md  
->├── DECISIONS.md  
->├── docker-compose.yml  
->├── Dockerfile.migrator  
->├── requirements.txt  
->├── data/  
->│   └── .gitkeep                    # le CSV >n'est pas versionné  
->├── mongo-init/  
->│   └── init-users.js               # création >des rôles au 1er démarrage  
->├── src/  
->│   ├── init.py  
->│   ├── migrate.py  
->│   ├── crud.py  
->│   └── config.py  
->├── tests/  
->│   ├── init.py  
->│   ├── test_integrity.py  
->│   └── test_crud.py  
->├── docs/  
->│   ├── architecture.png            # à >produire  
->│   ├── schema_db.png               # à >produire  
->│   └── aws_research.md             # étape 3  
->└── logs/  
->└── .gitkeep
+├── .gitignore  
+├── .python-version  
+├── README.md  
+├── DECISIONS.md  
+├── pyproject.toml  
+├── uv.lock  
+├── requirements.txt  
+├── pytest.ini  
+├── data/  
+│   └── healthcare_dataset.csv     # non versionné  
+├── notebooks/  
+│   └── 01_exploration_dataset.ipynb  
+├── src/  
+│   ├── init.py  
+│   ├── config.py                  # paramètres centralisés  
+│   ├── migrate.py                 # pipeline CSV → MongoDB  
+│   ├── export.py                  # pipeline MongoDB → JSONL/CSV  
+│   └── crud.py                    # démonstration CRUD  
+├── tests/  
+│   ├── init.py  
+│   ├── conftest.py  
+│   ├── test_csv_integrity.py  
+│   ├── test_mongo_integrity.py  
+│   └── test_export.py  
+├── exports/                       # non versionné (régénérable)  
+└── logs/  
+
 ---
 
 ## 10. Recherches AWS
@@ -290,15 +309,21 @@ Légende : ✅ fait • 🟡 en cours • ⏳ à faire • ⚠️ à clarifier
 
 ## 14. Limites connues
 
-> Section essentielle pour la soutenance. Mettre à jour au fil du projet.
+| Étape | Statut | Date |
+|---|---|---|
+| Étape 1 — Migration MongoDB | ✅ Terminée | 2026-04-28 |
+| Étape 2 — Conteneurisation Docker (auth + rôles) | ⏳ À démarrer | — |
+| Étape 3 — Recherches AWS | ⏳ À démarrer | — |
+| Étape 4 — Support de présentation | ⏳ À démarrer | — |
+| Étape 5 — Autoévaluation | ⏳ À démarrer | — |
 
-- *À compléter.*
-
-Pistes anticipées :
-- Le dataset est synthétique (Kaggle), pas de données médicales réelles.
-- Pas de réplication MongoDB configurée (mono-instance).
-- Pas de TLS sur la connexion MongoDB locale (à mentionner pour la production).
-- Pas de déploiement AWS effectif (hors périmètre).
+**Étape 1 livrée :**
+- Pipeline complet `src/migrate.py` (extract → validate → transform → load → index → validate)
+- Script d'export `src/export.py` (JSONL + CSV)
+- Démonstration CRUD `src/crud.py` (Create/Read/Update/Delete idempotente)
+- 25 tests pytest verts (CSV + Mongo + exports)
+- Logs structurés horodatés
+- Documentation des outils Mongo CLI testés (`mongoexport`, `mongodump`, `mongoimport`)
 
 ---
 
