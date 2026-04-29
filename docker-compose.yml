@@ -1,0 +1,52 @@
+services:
+  mongodb:
+    image: mongo:8.2
+    container_name: opc5-mongodb
+    restart: unless-stopped
+    # Variables consommées par MongoDB et propagées au script init-users.js
+    environment:
+      # Crée automatiquement l'utilisateur root au premier démarrage
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ADMIN_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ADMIN_PASSWORD}
+      # Variables custom utilisées par mongo-init/init-users.js
+      MIGRATION_USER_PASSWORD: ${MIGRATION_USER_PASSWORD}
+      ANALYST_USER_PASSWORD: ${ANALYST_USER_PASSWORD}
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - opc5-network
+
+  migrator:
+    container_name: opc5-migrator
+    build:
+      context: .
+      dockerfile: Dockerfile.migrator
+    restart: "no"
+    environment:
+      MONGO_URI: "mongodb://migration_user:${MIGRATION_USER_PASSWORD}@mongodb:27017/healthcare_db?authSource=healthcare_db"
+      MONGO_DB_NAME: healthcare_db
+      MONGO_COLLECTION_NAME: patients
+    volumes:
+      - ./data:/app/data:ro
+      - ./logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - opc5-network
+
+volumes:
+  mongo_data:
+
+networks:
+  opc5-network:
+    driver: bridge

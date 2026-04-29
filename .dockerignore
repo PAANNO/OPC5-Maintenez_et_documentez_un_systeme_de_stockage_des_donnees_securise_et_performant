@@ -1,0 +1,34 @@
+# Versioning
+.git/
+.gitignore
+
+# Environnement Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Données et exports (montés via volumes, pas copiés dans l'image)
+data/
+exports/
+logs/
+notebooks/
+
+# IDE
+.vscode/
+.idea/
+
+# Tests (l'image runtime n'a pas besoin des tests)
+tests/
+
+# Documentation
+README.md
+DECISIONS.md
+docs/
+
+# Configuration locale
+.env
+
+# OS
+Thumbs.db
+.DS_Store

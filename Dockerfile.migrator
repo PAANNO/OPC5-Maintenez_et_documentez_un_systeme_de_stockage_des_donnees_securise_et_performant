@@ -1,0 +1,19 @@
+# Image Python officielle, version slim (image plus légère)
+FROM python:3.13-slim
+
+# Variables d'environnement Python utiles en conteneur
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Installation des dépendances en premier (cache Docker plus efficace :
+# cette couche n'est rebuilée que si requirements.txt change)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copie du code source uniquement (cf. .dockerignore pour les exclusions)
+COPY src/ ./src/
+
+# Lancement du module de migration
+CMD ["python", "-m", "src.migrate"]
