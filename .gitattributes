@@ -1,0 +1,22 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Force LF for these technical formats
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.json        text eol=lf
+*.toml        text eol=lf
+*.lock        text eol=lf
+*.js          text eol=lf
+*.py          text eol=lf
+*.md          text eol=lf
+*.sh          text eol=lf
+Dockerfile*   text eol=lf
+
+# Treat as binary
+*.png         binary
+*.jpg         binary
+*.pdf         binary
+*.xlsx        binary
+*.pptx        binary
+*.docx        binary
