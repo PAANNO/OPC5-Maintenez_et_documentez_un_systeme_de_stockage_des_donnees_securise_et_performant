@@ -10,6 +10,14 @@ Ce module isole les paramètres pour qu'ils soient :
 import os
 from pathlib import Path
 
+# Charge le .env local si présent (utile pour pytest et exécution hors Docker)
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 # ─── Chemins ────────────────────────────────────────────────────────
 # Racine du projet (parent du dossier src/)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
