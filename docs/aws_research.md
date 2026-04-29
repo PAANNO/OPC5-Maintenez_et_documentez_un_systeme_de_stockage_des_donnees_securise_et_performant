@@ -1,6 +1,6 @@
 # Recherches AWS — Étape 3 du projet OPC5
 
-> **Périmètre :** étape documentaire non évaluée par OpenClassrooms (cf. consigne).  
+> **Périmètre :** étape documentaire.  
 > **Objectif :** documenter les services AWS pertinents pour faire évoluer la stack DataSoluTech vers une infrastructure cloud managée.  
 > **Posture :** document neutre informatif. Aucun déploiement réel.
 
@@ -22,17 +22,11 @@
 
 ## 1. Introduction
 
-<!--
-À COUVRIR :
-- Rappel rapide du contexte DataSoluTech (1-2 phrases, renvoyer au README)
-- Périmètre du document : 5 thèmes alignés sur la consigne OC étape 3
-- Posture : recherche/synthèse, pas de déploiement
-- Préciser que ce document servira de base pour la discussion mentor
+Le présent document fait suite à la mise en place de l'environnement local de gestion des données médicales chez DataSoluTech (cf. [README](../README.md)). Il vise à éclairer les options offertes par Amazon Web Services pour faire évoluer cette stack vers une infrastructure cloud managée, en cohérence avec les enjeux de scalabilité, de sécurité et de continuité d'activité identifiés en début de mission.
 
-LONGUEUR CIBLE : 1 paragraphe court (~5 lignes)
--->
+Cinq sujets sont traités : la création et la prise en main d'un compte AWS, le modèle de tarification, les services managés Amazon RDS et Amazon DocumentDB, le déploiement de conteneurs Docker sur Amazon ECS, et la configuration des sauvegardes et de la supervision des bases de données.
 
-*[À rédiger]*
+Ce document est exclusivement documentaire et ne s'accompagne d'aucun déploiement effectif. Il a vocation à servir de base de discussion technique pour cadrer la trajectoire cloud du projet.
 
 ---
 
