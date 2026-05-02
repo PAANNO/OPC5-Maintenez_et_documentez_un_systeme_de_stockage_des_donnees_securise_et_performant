@@ -25,5 +25,6 @@ logs/*.log
 Thumbs.db
 .DS_Store
 
-# Livrables
+# Livrables et autres fichiers
 livrables/
+consigne.md
