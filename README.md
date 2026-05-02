@@ -4,10 +4,10 @@
 
 ---
 
-## 📋 Sommaire
+## Sommaire
 
 - [OPC5 — Maintenez et documentez un système de stockage des données sécurisé et performant](#opc5--maintenez-et-documentez-un-système-de-stockage-des-données-sécurisé-et-performant)
-  - [📋 Sommaire](#-sommaire)
+  - [Sommaire](#sommaire)
   - [1. Contexte et objectifs](#1-contexte-et-objectifs)
   - [2. Architecture](#2-architecture)
   - [3. Schéma de la base de données](#3-schéma-de-la-base-de-données)
@@ -46,11 +46,6 @@
 - **Sécuriser** l'accès (authentification + rôles différenciés).
 - **Tester** l'intégrité avant/après migration.
 - **Documenter** une trajectoire d'évolution vers AWS (S3, RDS, DocumentDB, ECS).
-
-**Compétences évaluées (RNCP39775BC02) :**
-- Définir et formaliser les processus de traitement et de stockage des données.
-- Mettre en place un système d'authentification afin de garantir la sécurité des données.
-- Configurer l'environnement de travail.
 
 ---
 
@@ -95,15 +90,15 @@
 
 | Champ | Type | Description | Origine CSV | Indexé |
 |---|---|---|---|---|
-| `_id` | ObjectId | Identifiant interne MongoDB | (généré) | ✅ par défaut |
+| `_id` | ObjectId | Identifiant interne MongoDB | (généré) | par défaut |
 | `name` | string | Nom du patient (Title Case normalisé) | `Name` | — |
-| `age` | int | Âge en années | `Age` | ✅ via `idx_age_gender` |
-| `gender` | string | Genre | `Gender` | ✅ via `idx_age_gender` |
+| `age` | int | Âge en années | `Age` | `idx_age_gender` |
+| `gender` | string | Genre | `Gender` | `idx_age_gender` |
 | `blood_type` | string | Groupe sanguin | `Blood Type` | — |
-| `medical_condition` | string | Pathologie principale | `Medical Condition` | ✅ `idx_medical_condition` |
-| `date_of_admission` | datetime | Date d'admission | `Date of Admission` | ✅ `idx_date_of_admission_desc` |
+| `medical_condition` | string | Pathologie principale | `Medical Condition` | `idx_medical_condition` |
+| `date_of_admission` | datetime | Date d'admission | `Date of Admission` | `idx_date_of_admission_desc` |
 | `doctor` | string | Médecin référent (Title Case) | `Doctor` | — |
-| `hospital` | string | Établissement | `Hospital` | ✅ `idx_hospital` |
+| `hospital` | string | Établissement | `Hospital` | `idx_hospital` |
 | `insurance_provider` | string | Assurance | `Insurance Provider` | — |
 | `billing_amount` | float | Montant facturé | `Billing Amount` | — |
 | `room_number` | int | Numéro de chambre | `Room Number` | — |
@@ -358,11 +353,11 @@ L'ensemble des choix structurants (versions, rôles, indexation, format de logs,
 
 | Élément de consigne | Livrable | Preuve | Statut |
 |---|---|---|---|
-| Lien GitHub | URL du repo | À renseigner sur la plateforme OC | ⏳ À produire au rendu |
+| Lien GitHub | URL du repo | [Repository - OPC5](https://github.com/PAANNO/OPC5-Maintenez_et_documentez_un_systeme_de_stockage_des_donnees_securise_et_performant) | Fait |
 | README détaillant la migration | `README.md` (ce fichier) | Sections 2, 3, 7 | Fait |
 | `docker-compose.yml` | Fichier YAML racine | Fichier + démo `docker compose up` | Fait |
 | `Dockerfile` du pipeline | `Dockerfile.migrator` | Fichier + image construite | Fait |
-| Présentation PowerPoint | `docs/presentation.pptx` | Fichier + soutenance | ⏳ Étape 4 |
+| Présentation PowerPoint | `docs/presentation.pptx` | Fichier + soutenance | Fait |
 | Script de migration | `src/migrate.py` | Script + démo via `docker compose up` | Fait |
 | `requirements.txt` | Fichier racine | Fichier généré par `uv export` | Fait |
 | Tests d'intégrité automatisés | `tests/` + commande `pytest` | 25/25 verts | Fait |
@@ -384,8 +379,7 @@ Légende : Fait • partiel • à faire
 | Étape 1 — Migration MongoDB | Terminée | 28/04/2026 |
 | Étape 2 — Conteneurisation Docker (auth + rôles) | Terminée | 28/04/2026 |
 | Étape 3 — Recherches AWS | Terminée | 02/05/2026 |
-| Étape 4 — Support de présentation | ⏳ À démarrer | — |
-| Étape 5 — Autoévaluation | ⏳ À démarrer | — |
+| Étape 4 — Support de présentation | Terminée | 02/05/2026 |
 
 **Étape 1 livrée :**
 - Pipeline `src/migrate.py` (extract → validate → transform → load → index → validate)
