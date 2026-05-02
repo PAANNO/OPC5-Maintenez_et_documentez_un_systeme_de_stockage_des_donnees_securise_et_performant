@@ -348,6 +348,96 @@ Format inspiré des ADR (Architecture Decision Records).
 
 ---
 
-## État actuel du projet
+## 2026-05-02 — Choix d'eu-west-1 (Irlande) comme région cible AWS
 
-À la fin de l'étape 2 (28/04/2026), toutes les décisions structurantes du périmètre Docker / MongoDB / pipeline sont tracées. Les décisions à venir relèvent de l'étape 3 (recherches AWS) et seront documentées au moment où elles seront prises (choix DocumentDB vs RDS, modèle de tarification retenu, etc.).
+**Contexte :** Le document de recherche AWS doit fournir des estimations chiffrées et un cadrage régional. AWS facture différemment selon la région ; le choix de la région impacte également la latence et la conformité réglementaire.
+
+**Options envisagées :**
+- **eu-west-1 (Irlande) :** région européenne historique, éventail complet de services, tarifs parmi les plus bas en Europe.
+- **eu-west-3 (Paris) :** plus proche du client supposé en France, mais tarifs légèrement supérieurs et catalogue de services parfois en retard.
+- **eu-central-1 (Francfort) :** alternative européenne, tarifs comparables à eu-west-1.
+
+**Décision :** Retenir `eu-west-1` comme région de référence pour les estimations.
+
+**Justification :**
+- Catalogue de services le plus complet en Europe (DocumentDB, Lightsail, AWS Backup all-features, etc.).
+- Tarifs compétitifs.
+- Région européenne, conforme aux exigences RGPD pour des données médicales.
+- Latence acceptable depuis la France métropolitaine.
+
+**Alternatives écartées :**
+- `eu-west-3` : surcoût marginal sans bénéfice fonctionnel notable pour un environnement de pré-production.
+- `us-east-1` : exclu pour des raisons réglementaires (données médicales).
+
+**Impacts :** Toutes les estimations chiffrées du document `aws_research.md` sont basées sur les tarifs eu-west-1. Un changement de région impacterait les ordres de grandeur de l'ordre de ±10 %.
+
+---
+
+## 2026-05-02 — Présentation de deux architectures AWS au lieu d'une
+
+**Contexte :** L'étape 3 du projet demande de documenter les services AWS pour faire évoluer la stack DataSoluTech vers le cloud. La consigne suggère plusieurs services (DocumentDB, ECS, S3, RDS) sans imposer une architecture unique.
+
+**Options envisagées :**
+- **Une seule architecture cible (cloud-native)** : présenter uniquement DocumentDB + ECS Fargate + S3.
+- **Deux architectures cibles** : présenter une option cloud-native (Option A) et une option full-conteneurs reprenant la stack locale (Option B).
+
+**Décision :** Présenter deux architectures comparées, avec arbitrage explicite (coût, charge opérationnelle, portabilité).
+
+**Justification :**
+- L'Option B est explicitement évoquée par la consigne (« déploiement d'une instance MongoDB dans un conteneur Docker sur Amazon ECS »).
+- Présenter deux options démontre une démarche de consultant (analyse, comparaison, recommandation conditionnelle) plutôt qu'une simple application de la doc AWS.
+- Permet d'argumenter une trajectoire en deux temps (B → A) lors de la soutenance.
+
+**Alternatives écartées :** Architecture unique trop directive pour un document de cadrage sans hypothèses fermes côté client.
+
+**Impacts :** Le document `aws_research.md` est structuré autour de cette comparaison à partir de la section 6.4. Les estimations chiffrées de la section 3.5 portent sur les deux options.
+
+---
+
+## 2026-05-02 — ECS sur EC2 (t4g.small) plutôt que Fargate pour MongoDB en Option B
+
+**Contexte :** En Option B (MongoDB conteneurisé dans ECS), il est nécessaire de choisir le compute sous-jacent pour faire tourner le conteneur MongoDB en 24/7. La consigne impose ECS comme orchestrateur ; le compute reste à choisir.
+
+**Options envisagées :**
+- **ECS Fargate :** serverless, pas de gestion d'instance, ~18 USD/mois pour 0,5 vCPU + 1 Go.
+- **ECS sur EC2 (t4g.small) :** instance Graviton ARM 24/7, ~14 USD/mois, gestion OS à la charge du client.
+- **ECS Managed Instances :** compromis, ~15 USD/mois, OS géré par AWS.
+
+**Décision :** Retenir **ECS sur EC2 avec une instance `t4g.small`** pour le conteneur MongoDB.
+
+**Justification :**
+- Option la moins coûteuse pour un service permanent à faible volumétrie (~14 USD/mois).
+- Conformité à la consigne (ECS, pas Lightsail ni service hors périmètre).
+- Instance Graviton (ARM) offre un meilleur rapport prix/performance que x86.
+- 2 Go de RAM offrent une marge confortable pour un MongoDB hébergeant ~1 Go de données.
+- Le **migrator** ponctuel reste en Fargate (charge à la seconde), arbitrage standard sur ECS.
+
+**Alternatives écartées :**
+- **Fargate 24/7** : surcoût injustifié pour une charge permanente.
+- **Lightsail Container Service** : techniquement viable mais hors périmètre ECS imposé par la consigne.
+- **ECS Managed Instances** : surcoût marginal pour un bénéfice (gestion OS) qui peut être absorbé en pré-production.
+
+**Impacts :** Sections 3.5 et 6.4 du document `aws_research.md`. L'Option B est estimée à ~17 USD/mois total (au lieu de ~52 USD pour l'Option A).
+
+---
+
+## 2026-05-02 — EBS local plutôt qu'EFS pour la persistance MongoDB en Option B
+
+**Contexte :** Le conteneur MongoDB en Option B nécessite un stockage persistant pour ses données. L'instance EC2 hôte vient déjà avec un volume EBS racine. Un volume EFS additionnel pourrait être attaché.
+
+**Options envisagées :**
+- **EBS uniquement** (volume racine de l'instance EC2 agrandi) : ~2,40 USD/mois pour 30 Go en gp3.
+- **EBS + EFS additionnel** : EBS pour OS et runtime + EFS pour les données Mongo, ~2,70 USD/mois total.
+
+**Décision :** Retenir **EBS uniquement** (volume racine agrandi à 30 Go).
+
+**Justification :**
+- Architecture à instance unique : aucun besoin de partager le volume entre plusieurs tasks.
+- EBS est plus rapide qu'EFS (latence I/O bien plus faible), ce qui bénéficie aux performances de MongoDB.
+- EBS gp3 est ~4× moins cher au Go qu'EFS Standard.
+- Simplicité opérationnelle : un seul volume à gérer, monté en bind mount Docker.
+
+**Alternatives écartées :**
+- **EFS** : pertinent uniquement pour le multi-AZ (non requis en pré-production) ou pour le partage entre tasks (cas non présent dans cette architecture).
+
+**Impacts :** Sections 3.5 et 6.4 du document `aws_research.md`. L'Option B reste estimée à ~17 USD/mois. Le total n'est pas modifié, mais l'architecture est rationalisée. Pour un passage en production avec exigences multi-AZ, ce choix devrait être réexaminé (replica set MongoDB sur plusieurs EC2/AZ avec snapshots EBS cross-AZ).
