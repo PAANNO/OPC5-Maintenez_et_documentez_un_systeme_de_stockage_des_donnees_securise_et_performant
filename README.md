@@ -56,7 +56,7 @@
 
 ## 2. Architecture
 
-> 📌 **Schéma à produire** : un diagramme `docs/architecture.png` sera ajouté à la fin de l'étape 2/début de l'étape 4 pour la présentation orale.
+![architecture](./docs/img/architecture.jpeg)
 
 **Vue d'ensemble — services Docker Compose :**
 
@@ -85,7 +85,7 @@
 
 ## 3. Schéma de la base de données
 
-> 📌 **Schéma visuel à produire** : un diagramme `docs/schema_db.png` sera ajouté avant la soutenance.
+![schema_db](./docs/img/schema_db.jpeg)
 
 **Base :** `healthcare_db`
 **Collection :** `patients`
@@ -336,7 +336,7 @@ Les tests d'authentification sont réalisés manuellement et tracés dans [`docs
 
 ## 10. Recherches AWS
 
-Documentation détaillée dans [`docs/aws_research.md`](./docs/aws_research.md) (à produire en étape 3). Couvre :
+Documentation détaillée dans [`docs/aws_research.md`](./docs/aws_research.md). Couvre :
 - Création d'un compte AWS.
 - Modèles tarifaires.
 - Amazon RDS et la question de MongoDB sur RDS.
@@ -344,7 +344,7 @@ Documentation détaillée dans [`docs/aws_research.md`](./docs/aws_research.md) 
 - Déploiement via Amazon ECS.
 - Sauvegardes et monitoring (CloudWatch, snapshots).
 
-> ⚠️ Cette étape est documentaire — **aucun déploiement réel** n'est effectué dans ce projet.
+> Cette étape est documentaire — **aucun déploiement réel** n'est effectué dans ce projet.
 
 ---
 
@@ -359,22 +359,21 @@ L'ensemble des choix structurants (versions, rôles, indexation, format de logs,
 | Élément de consigne | Livrable | Preuve | Statut |
 |---|---|---|---|
 | Lien GitHub | URL du repo | À renseigner sur la plateforme OC | ⏳ À produire au rendu |
-| README détaillant la migration | `README.md` (ce fichier) | Sections 2, 3, 7 | ✅ Fait |
-| `docker-compose.yml` | Fichier YAML racine | Fichier + démo `docker compose up` | ✅ Fait |
-| `Dockerfile` du pipeline | `Dockerfile.migrator` | Fichier + image construite | ✅ Fait |
+| README détaillant la migration | `README.md` (ce fichier) | Sections 2, 3, 7 | Fait |
+| `docker-compose.yml` | Fichier YAML racine | Fichier + démo `docker compose up` | Fait |
+| `Dockerfile` du pipeline | `Dockerfile.migrator` | Fichier + image construite | Fait |
 | Présentation PowerPoint | `docs/presentation.pptx` | Fichier + soutenance | ⏳ Étape 4 |
-| Script de migration | `src/migrate.py` | Script + démo via `docker compose up` | ✅ Fait |
-| `requirements.txt` | Fichier racine | Fichier généré par `uv export` | ✅ Fait |
-| Tests d'intégrité automatisés | `tests/` + commande `pytest` | 25/25 verts | ✅ Fait |
-| Schéma BDD | `docs/schema_db.png` | Image insérée dans README §3 | 🟡 Tableau OK, image à produire |
-| Schéma d'architecture | `docs/architecture.png` | Image insérée dans README §2 | 🟡 Description OK, image à produire |
-| Système d'authentification | Code + doc | README §4 + `docs/security_tests.md` | ✅ Fait |
-| Rôles utilisateurs différenciés | `mongo-init/init-users.js` | Fichier + tests manuels documentés | ✅ Fait |
-| Volumes Docker (≥ 1) | `docker-compose.yml` | Volume nommé `mongo_data` + bind mount `./data` | ✅ Fait |
-| Recherches AWS | `docs/aws_research.md` | Document Markdown | ⏳ Étape 3 |
-| Fiche d'autoévaluation | PDF complété | Document signé | ⏳ Étape 5 |
+| Script de migration | `src/migrate.py` | Script + démo via `docker compose up` | Fait |
+| `requirements.txt` | Fichier racine | Fichier généré par `uv export` | Fait |
+| Tests d'intégrité automatisés | `tests/` + commande `pytest` | 25/25 verts | Fait |
+| Schéma BDD | `docs/schema_db.png` | Image insérée dans README §3 | Fait |
+| Schéma d'architecture | `docs/architecture.png` | Image insérée dans README §2 | Fait |
+| Système d'authentification | Code + doc | README §4 + `docs/security_tests.md` | Fait |
+| Rôles utilisateurs différenciés | `mongo-init/init-users.js` | Fichier + tests manuels documentés | Fait |
+| Volumes Docker (≥ 1) | `docker-compose.yml` | Volume nommé `mongo_data` + bind mount `./data` | Fait |
+| Recherches AWS | `docs/aws_research.md` | Document Markdown | Fait |
 
-Légende : ✅ fait • 🟡 partiel • ⏳ à faire • ⚠️ à clarifier
+Légende : Fait • partiel • à faire
 
 ---
 
@@ -382,9 +381,9 @@ Légende : ✅ fait • 🟡 partiel • ⏳ à faire • ⚠️ à clarifier
 
 | Étape | Statut | Date |
 |---|---|---|
-| Étape 1 — Migration MongoDB | ✅ Terminée | 2026-04-28 |
-| Étape 2 — Conteneurisation Docker (auth + rôles) | ✅ Terminée | 2026-04-28 |
-| Étape 3 — Recherches AWS | ⏳ À démarrer | — |
+| Étape 1 — Migration MongoDB | Terminée | 28/04/2026 |
+| Étape 2 — Conteneurisation Docker (auth + rôles) | Terminée | 28/04/2026 |
+| Étape 3 — Recherches AWS | Terminée | 02/05/2026 |
 | Étape 4 — Support de présentation | ⏳ À démarrer | — |
 | Étape 5 — Autoévaluation | ⏳ À démarrer | — |
 

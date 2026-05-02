@@ -442,7 +442,7 @@ Cette architecture est viable pour un environnement de développement, de pré-p
 
 Le choix entre les deux options dépend du profil de risque accepté, du budget, et des compétences disponibles côté exploitation. Pour DataSoluTech, une **trajectoire en deux temps** est envisageable : démarrage en Option B (proche de l'existant, montée en compétence progressive sur ECS), puis migration vers l'Option A si la charge applicative et les exigences de SLA le justifient.
 
-> Un schéma d'architecture cloud sera produit en complément (`docs/architecture_cloud.png`) pour la présentation orale, illustrant les deux options.
+![architecture cloud](img/architecture_cloud.jpeg)
 
 ---
 
