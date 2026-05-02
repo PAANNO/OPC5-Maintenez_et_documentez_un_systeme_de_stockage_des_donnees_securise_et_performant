@@ -24,3 +24,6 @@ logs/*.log
 # OS
 Thumbs.db
 .DS_Store
+
+# Livrables
+livrables/
